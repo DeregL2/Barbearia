@@ -209,8 +209,26 @@ app.post("/agendar", (req, res) => {
     const disponibilidade = disponibilidades.find(d => d.barbeiroId === barbeiroId && d.data === data);
 
     if(!disponibilidade || !disponibilidade.horarios.includes(horario)){
-        return res.status(400).json({ erro: "Horário indisponível"})
+        return res.status(400).json({ erro: "Horário indisponível"});
     }
+
+    // remove o horario da lista
+    disponibilidade.horarios = disponibilidade.horarios.filter(h => h !== horario);
+
+    const novoAgendamento = {
+        id: agendamentos.length + 1,
+        clienteId,
+        barbeiroId,
+        data,
+        horario
+    };
+
+    agendamentos.push(novoAgendamento);
+
+    return res.status(201).json({
+        mensagem: "Agendamento realizado com sucesso"
+    });
+
 })
 
 const PORT = 3000;
