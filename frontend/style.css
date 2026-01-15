@@ -88,3 +88,26 @@ a {
 .barbeiro:hover {
     background: #444;
 }
+
+.lista-horarios {
+    display: flex;
+    flex-wrap: wrap; /* Se não couber na linha, joga pra baixo */
+    gap: 10px;       /* Espaço entre os horários */
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.horario {
+    background: #333;
+    padding: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    border: 1px solid #444;
+    color: white;
+}
+
+.horario.selecionado {
+    background: #fff;
+    color: #000;
+    font-weight: bold;
+}

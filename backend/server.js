@@ -5,8 +5,21 @@ const bcrypt = require("bcrypt");
 const app = express();
 
 const usuarios = [];
-const barbeiros = [];
-const disponibilidades = [];
+const barbeiros = [{
+    id: 1,
+    nome: "Mestre da Navalha",
+    email: "barbeiro@email.com",
+    senha: "123",
+    tipo: "barbeiro"
+}];
+const disponibilidades = [
+    {
+        id: 1,
+        barbeiroId: 1, // ID do Mestre da Navalha
+        data: "2026-01-20", // Data que teremos que selecionar no calendário
+        horarios: ["09:00", "10:00", "14:00", "15:30", "17:00"]
+    }
+];
 const agendamentos = [];
 
 app.use(cors());
