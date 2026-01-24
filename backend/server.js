@@ -25,6 +25,23 @@ const agendamentos = [];
 app.use(cors());
 app.use(express.json());
 
+async function criarBarbeiroInicial() {
+
+    const senhaCriptografada = await bcrypt.hash("123",10);
+
+    usuarios.push ({
+        id:1,
+        nome: "Mestre da Navalha",
+        email: "barbeiro@email.com",
+        senha: senhaCriptografada,
+        tipo: "barbeiro"
+    });
+
+    console.log("✂️ Barbeiro Mestre criado com sucesso!");
+}
+
+criarBarbeiroInicial();
+
 // rota de teste
 app.get("/", (req, res) => {
     res.send("Servidor da Barbearia rodando");
@@ -51,6 +68,12 @@ app.get("/disponibilidade/:barbeiroId/:data", (req,res) => {
     }
 
     return res.json({ horarios: disponibilidade.horarios });
+});
+
+// Rota para o barbeiro ver seus agendamentos
+app.get('/ver-agendamentos', (req, res) => {
+    // Retorna a lista completa que está na memória
+    res.status(200).json(agendamentos);
 });
 
 app.post("/register", async (req,res) => {
@@ -93,78 +116,6 @@ app.post("/register", async (req,res) => {
     });
 
 })
-
-app.post("/barbeiro", async (req, res) => {
-    const { nome, email, senha } = req.body;
-
-    if (!nome || !email || !senha) {
-        return res.status(400).json({
-            erro: "Nome, email e senha são obrigatórios "
-        });
-    }
-
-    //verifica se o email ja existe
-    const emailExiste = usuarios.find(u => u.email === email);
-
-    if (emailExiste){
-        return res.status(409).json({
-            erro: "Email ja cadastrado"
-        });
-    }
-
-    const senhaCriptografada = await bcrypt.hash(senha, 10);
-
-    const novoBarbeiro = {
-        id: barbeiros.length + 1,
-        nome,
-        email,
-        senha: senhaCriptografada,
-        tipo: "barbeiro"
-    };
-
-    usuarios.push(novoBarbeiro);
-    barbeiros.push(novoBarbeiro);
-
-    return res.status(201).json({
-        mensagem: "Barbeiro cadastrado com sucesso",
-        barbeiro: {
-            id: novoBarbeiro.id,
-            nome: novoBarbeiro.nome
-        }
-    });
-
-});
-
-app.post("/barbeiro/disponibilidade", (req, res) => {
-    const { barbeiroId, data, horarios } = req.body;
-
-    if (!barbeiroId || !data || !horarios || !Array.isArray(horarios)){
-        return res.status(400).json({
-            erro: "barbeiroId, data e horarios são obrigatórios"
-        });
-    }
-
-    const barbeiro = barbeiros.find(b => b.id === barbeiroId);
-
-    if(!barbeiro){
-        return res.status(404).json({
-            erro: "Barbeiro não encontrado"
-        });
-    }
-
-    const novaDisponibilidade = {
-        id: disponibilidades.length + 1,
-        barbeiroId,
-        data,
-        horarios
-    };
-
-    disponibilidades.push(novaDisponibilidade);
-
-    return res.status(201).json({
-        mensagem: "Horários cadastrados com sucesso"
-    });
-});
 
 app.post("/login", async (req, res) => {
     const { email, senha } = req.body;
@@ -242,6 +193,66 @@ app.post("/agendar", (req, res) => {
         mensagem: "Agendamento realizado com sucesso"
     });
 
+})
+
+// Rota EXCLUSIVA para cadastrar novos barbeiros (Área Admin)
+app.post('/admin/cadastrar-barbeiro', async (req,res)=>{
+    const { nome, email, senha } = req.body;
+
+    // Verifica se já existe alguém com esse email
+    const usuarioExiste = usuarios.find(u => u.email === email);
+    if (usuarioExiste){
+        return res.status(400).json({ erro: "E-mail já cadastrado!"});
+    }
+
+    // CRIPTOGRAFANDO A SENHA (Correção de Segurança)
+    const senhaCriptografada = await bcrypt.hash(senha, 10);
+
+    // Cria o novo barbeiro
+    const novoBarbeiro = {
+        id: usuarios.length + 1,
+        nome: nome,
+        email: email,
+        senha: senhaCriptografada,
+        tipo: "barbeiro"
+    };
+
+    usuarios.push(novoBarbeiro);
+
+    const dadosBarbeiro = {
+        id: novoBarbeiro.id,
+        nome: novoBarbeiro.nome,
+        email: novoBarbeiro.email
+    };
+
+    barbeiros.push(dadosBarbeiro);
+
+    res.status(200).json({
+        mensagem: "Barbeiro cadastrado com sucesso!",
+        barbeiros: dadosBarbeiro
+    });
+});
+
+// Rota para o barbeiro definir seus horários livres
+app.post("/barbeiros/disponibilidade", (req,res) => {
+    const { barbeiroId, data, horarios } = req.body;
+
+    // Validação básica
+    if (!barbeiroId || !data || !horarios) {
+        return res.status(400).json({ erro:"Dados incompletos." })
+    }
+
+    // Cria a nova disponibilidade
+    const novaDisponibilidade = {
+        id: disponibilidades.length + 1,
+        barbeiroId: parseInt(barbeiroId), // Garante que e um numero
+        data: data,
+        horarios: horarios
+    };
+
+    disponibilidades.push(novaDisponibilidade);
+
+    res.status(201).json({ mensagem: "Agenda criada com sucesso! "})
 })
 
 const PORT = 3000;
