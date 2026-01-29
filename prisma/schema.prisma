@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id      Int      @id @default(autoincrement())
+  nome    String
+  email   String   @unique
+  senha   String
+  tipo    String   // "cliente" ou "barbeiro"
+
+  // RELAÇÕES (O Prisma precisa disso para saber quem é quem)
+  agendamentosCliente  Agendamento[] @relation("cliente")
+  agendamentosBarbeiro Agendamento[] @relation("barbeiro")
+  disponibilidades     Disponibilidade[]
+}
+
+model Agendamento {
+  id         Int    @id @default(autoincrement())
+  data       String
+  horario    String
+  
+  // Quem é o cliente?
+  clienteId  Int
+  cliente    User   @relation("cliente", fields: [clienteId], references: [id])
+
+  // Quem é o barbeiro?
+  barbeiroId Int
+  barbeiro   User   @relation("barbeiro", fields: [barbeiroId], references: [id])
+}
+
+model Disponibilidade {
+  id         Int    @id @default(autoincrement())
+  data       String
+  horarios   String // Vamos salvar assim: "09:00,10:00,11:00"
+  
+  barbeiroId Int
+  barbeiro   User   @relation(fields: [barbeiroId], references: [id])
+}

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barbearia | Cadastro</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Crie sua conta</h1>
+        <p>Preencha os dados abaixo</p>
+
+        <form onsubmit="cadastrarUsuario(event)">
+            
+            <input id="nome" type="text" placeholder="Nome Completo" required>
+            <input id="email" type="email" placeholder="Email" required>
+            <input id="senha" type="password" placeholder="Senha" required>
+
+            <button type="submit">Cadastrar</button>
+
+        </form>
+
+        <p class="link">
+            Já tem conta? <a href="index.html">Faça login</a>
+        </p>
+
+        <p id="msg"></p>
+
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
