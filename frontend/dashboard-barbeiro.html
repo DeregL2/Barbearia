@@ -8,71 +8,151 @@
     
     <style>
         body {
-            background-color: #212529; /* Fundo escuro */
+            background-color: #212529;
             color: white;
             min-height: 100vh;
-            padding-top: 50px;
+            padding-top: 30px;
         }
-        
-        /* Mantendo seu estilo dourado personalizado */
-        .card-agendamento {
-            border-left: 5px solid #ffc107; /* Amarelo/Dourado do Bootstrap (warning) */
+        .card-custom {
+            background-color: #2c3034;
+            border: 1px solid #444;
+        }
+        /* Estilo para quando o botão (checkbox) estiver marcado */
+        .btn-check:checked + .btn-outline-warning {
+            background-color: #ffc107;
+            color: #000;
+            font-weight: bold;
+        }
+        /* Ajuste de tamanho para caberem muitos horários */
+        .grid-horarios {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 10px;
         }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container pb-5">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>Minha Agenda ✂️</h1>
+            <h1>Painel do Barbeiro ✂️</h1>
             <button onclick="logout()" class="btn btn-danger btn-sm">Sair</button>
         </div>
 
-        <p class="lead">Bem-vindo, <strong id="nome-barbeiro" class="text-warning">Barbeiro</strong></p>
-        
-        <div id="lista-agendamentos" class="mt-4">
-            <div class="alert alert-info">Carregando agenda...</div>
+        <p class="lead">Bem-vindo, <strong id="nome-barbeiro" class="text-warning">...</strong></p>
+
+        <div class="row">
+            <div class="col-md-5 mb-4">
+                <div class="card card-custom p-3">
+                    <h4 class="mb-3">📅 Cortes Agendados</h4>
+                    <div id="lista-agendamentos" style="max-height: 500px; overflow-y: auto;">
+                        <div class="alert alert-secondary">Carregando agenda...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-7">
+                <div class="card card-custom p-3">
+                    <h4 class="mb-3">➕ Abrir Nova Data</h4>
+                    <form onsubmit="abrirAgenda(event)">
+                        <div class="mb-3">
+                            <label class="form-label">Selecione o Dia:</label>
+                            <input type="date" id="data-agenda" class="form-control" required>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label mb-0">Horários Disponíveis:</label>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-outline-light" onclick="marcarTodos(true)">Todos</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="marcarTodos(false)">Nenhum</button>
+                            </div>
+                        </div>
+
+                        <div id="container-horarios" class="grid-horarios mb-3"></div>
+
+                        <button type="submit" class="btn btn-success w-100 fw-bold">Salvar Disponibilidade</button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
         const API = "http://localhost:3000";
+        const usuarioLogado = JSON.parse(localStorage.getItem("usuario"));
+
+        // Proteção de Rota
+        if (!usuarioLogado || usuarioLogado.tipo !== "barbeiro") {
+            window.location.href = "index.html";
+        } else {
+            document.getElementById("nome-barbeiro").innerText = usuarioLogado.nome;
+            carregarAgenda();
+            gerarHorarios(); // GERA OS BOTÕES ASSIM QUE A TELA ABRE
+        }
+
+        // --- FUNÇÃO MÁGICA PARA GERAR HORÁRIOS ---
+        function gerarHorarios() {
+            const container = document.getElementById("container-horarios");
+            container.innerHTML = ""; // Limpa antes de gerar
+
+            const horaInicio = 5;  // 05:00 da manhã
+            const horaFim = 23;    // 23:00 da noite
+
+            for (let i = horaInicio; i <= horaFim; i++) {
+                // Formata o numero para ter dois digitos (ex: 5 vira "05")
+                const horaString = i.toString().padStart(2, '0') + ":00";
+                
+                // Cria o HTML do checkbox dinamicamente
+                // Usamos o ID único baseado na hora (ex: check-05:00)
+                const html = `
+                    <input type="checkbox" class="btn-check" id="check-${horaString}" value="${horaString}">
+                    <label class="btn btn-outline-warning w-100" for="check-${horaString}">${horaString}</label>
+                `;
+                
+                // Adiciona ao container (precisa converter string pro DOM ou usar insertAdjacentHTML)
+                container.insertAdjacentHTML('beforeend', html);
+            }
+            
+            // Adiciona também a meia-noite se quiser (00:00)
+             /* const meiaNoite = `
+                <input type="checkbox" class="btn-check" id="check-00:00" value="00:00">
+                <label class="btn btn-outline-warning w-100" for="check-00:00">00:00</label>
+             `;
+             container.insertAdjacentHTML('beforeend', meiaNoite);
+             */
+        }
+
+        function marcarTodos(status) {
+            const checkboxes = document.querySelectorAll('.btn-check');
+            checkboxes.forEach(cb => cb.checked = status);
+        }
 
         async function carregarAgenda() {
             const lista = document.getElementById("lista-agendamentos");
-            
-            const usuarioLogado = JSON.parse(localStorage.getItem("usuario"));
-            
-            if (!usuarioLogado || usuarioLogado.tipo !== "barbeiro") {
-                window.location.href = "index.html";
-                return;
-            }
-
-            document.getElementById("nome-barbeiro").innerText = usuarioLogado.nome;
-
             try {
                 const res = await fetch(`${API}/ver-agendamentos`);
                 const agendamentos = await res.json();
-
+                
                 lista.innerHTML = ""; 
 
                 const meusAgendamentos = agendamentos.filter(a => a.barbeiroId == usuarioLogado.id);
 
                 if (meusAgendamentos.length === 0) {
-                    lista.innerHTML = '<div class="alert alert-secondary">Nenhum corte agendado por enquanto.</div>';
+                    lista.innerHTML = '<div class="alert alert-dark">Nenhum corte agendado.</div>';
                     return;
                 }
 
                 meusAgendamentos.forEach(item => {
+                    const nomeCliente = item.cliente ? item.cliente.nome : `ID: ${item.clienteId}`;
+                    const emailCliente = item.cliente ? item.cliente.email : '';
+
                     const card = document.createElement("div");
-                    // Classes do Bootstrap para o Card + Sua classe personalizada
-                    card.className = "card mb-3 bg-dark border-secondary card-agendamento";
-                    
+                    card.className = "card mb-2 bg-dark border-secondary";
                     card.innerHTML = `
-                        <div class="card-body text-white">
-                            <h5 class="card-title text-warning">📅 ${item.data}</h5>
-                            <p class="card-text">
-                                <strong>Horário:</strong> ${item.horario} <br>
-                                <strong>Cliente ID:</strong> ${item.clienteId}
+                        <div class="card-body p-2">
+                            <h6 class="text-warning mb-1">📅 ${item.data} - ${item.horario}</h6>
+                            <p class="mb-0 small">
+                                ✂️ <strong>Cliente:</strong> ${nomeCliente} <br>
+                                📧 ${emailCliente}
                             </p>
                         </div>
                     `;
@@ -80,8 +160,47 @@
                 });
 
             } catch (err) {
-                lista.innerHTML = '<div class="alert alert-danger">Erro ao carregar agenda.</div>';
                 console.error(err);
+                lista.innerHTML = '<div class="alert alert-danger">Erro ao carregar agenda.</div>';
+            }
+        }
+
+        async function abrirAgenda(event) {
+            event.preventDefault();
+            
+            const data = document.getElementById("data-agenda").value;
+            
+            // Pega todos os checkboxes marcados
+            const checkboxes = document.querySelectorAll('.btn-check:checked');
+            const horariosSelecionados = Array.from(checkboxes).map(cb => cb.value);
+
+            if (horariosSelecionados.length === 0) {
+                alert("Selecione pelo menos um horário!");
+                return;
+            }
+
+            const horariosString = horariosSelecionados.join(",");
+
+            try {
+                const res = await fetch(`${API}/disponibilidade`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        barbeiroId: usuarioLogado.id,
+                        data: data,
+                        horarios: horariosString
+                    })
+                });
+
+                const resposta = await res.json();
+
+                if (res.ok) {
+                    alert(resposta.mensagem);
+                } else {
+                    alert("Erro: " + resposta.erro);
+                }
+            } catch (err) {
+                alert("Erro ao conectar com servidor");
             }
         }
 
@@ -89,8 +208,6 @@
             localStorage.clear();
             window.location.href = "index.html";
         }
-
-        carregarAgenda();
     </script>
 </body>
 </html>

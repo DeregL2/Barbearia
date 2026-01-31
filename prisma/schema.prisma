@@ -7,37 +7,45 @@ datasource db {
   url      = "file:./dev.db"
 }
 
+// 1. MODELO DE USUÁRIO (Unificado)
 model User {
-  id      Int      @id @default(autoincrement())
-  nome    String
-  email   String   @unique
-  senha   String
-  tipo    String   // "cliente" ou "barbeiro"
+  id        Int      @id @default(autoincrement())
+  nome      String
+  email     String   @unique
+  senha     String
+  tipo      String   // "cliente", "barbeiro" ou "admin"
+  
+  // CAMPOS ESPECÍFICOS PARA BARBEIROS (Opcionais com ?)
+  descricao String?  // Ex: "Especialista em degradê"
+  fotoUrl   String?  // Link da foto de perfil
+  preco     Float?   // Valor cobrado pelo serviço
 
-  // RELAÇÕES (O Prisma precisa disso para saber quem é quem)
+  // RELAÇÕES (Essencial para ligar as tabelas)
   agendamentosCliente  Agendamento[] @relation("cliente")
   agendamentosBarbeiro Agendamento[] @relation("barbeiro")
-  disponibilidades     Disponibilidade[]
+  disponibilidades      Disponibilidade[]
 }
 
+// 2. MODELO DE AGENDAMENTO
 model Agendamento {
   id         Int    @id @default(autoincrement())
   data       String
   horario    String
   
-  // Quem é o cliente?
+  // Chave estrangeira do Cliente
   clienteId  Int
   cliente    User   @relation("cliente", fields: [clienteId], references: [id])
 
-  // Quem é o barbeiro?
+  // Chave estrangeira do Barbeiro
   barbeiroId Int
   barbeiro   User   @relation("barbeiro", fields: [barbeiroId], references: [id])
 }
 
+// 3. MODELO DE DISPONIBILIDADE
 model Disponibilidade {
   id         Int    @id @default(autoincrement())
   data       String
-  horarios   String // Vamos salvar assim: "09:00,10:00,11:00"
+  horarios   String // Ex: "09:00,10:00,14:00"
   
   barbeiroId Int
   barbeiro   User   @relation(fields: [barbeiroId], references: [id])
