@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Painel Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css"> 
+</head>
+<body class="bg-admin">
+
+    <nav class="navbar navbar-custom mb-5">
+        <div class="container">
+            <span class="brand-font h4 m-0 text-white">👑 Gestão da Barbearia</span>
+            <button onclick="logout()" class="btn btn-outline-danger btn-sm">SAIR</button>
+        </div>
+    </nav>
+
+    <div class="container pb-5">
+        <div id="msg-erro" class="alert alert-danger d-none">⛔ Sem permissão.</div>
+
+        <div id="painel-admin" class="row justify-content-center g-4">
+            
+            <div class="col-md-8">
+                <div class="card card-custom p-4 border-warning">
+                    <h4 class="mb-3 text-white border-bottom border-secondary pb-2">💰 Tabela de Preços</h4>
+                    <form onsubmit="atualizarPreco(event)" class="row align-items-end">
+                        <div class="col-6">
+                            <label class="text-warning small fw-bold">VALOR DO CORTE (R$)</label>
+                            <input type="number" id="precoCorte" class="form-control" step="0.01" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="text-warning small fw-bold">VALOR DO SINAL (R$)</label>
+                            <input type="number" id="precoSinal" class="form-control" step="0.01" required>
+                        </div>
+                        <div class="col-12 mt-3">
+                            <button type="submit" class="btn btn-outline-warning w-100 fw-bold">SALVAR NOVOS PREÇOS</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="card card-custom p-4">
+                    <h4 class="mb-3 text-white border-bottom border-secondary pb-2">Cadastrar Profissional</h4>
+                    <form onsubmit="cadastrarBarbeiro(event)">
+                        <div class="mb-3">
+                            <label class="text-warning small fw-bold">NOME COMPLETO</label>
+                            <input type="text" id="nome" class="form-control" placeholder="Ex: João Navalha" required>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="text-warning small fw-bold">E-MAIL</label>
+                                <input type="email" id="email" class="form-control" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="text-warning small fw-bold">SENHA INICIAL</label>
+                                <input type="password" id="senha" class="form-control" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="text-warning small fw-bold">DESCRIÇÃO / ESPECIALIDADE</label>
+                            <textarea id="descricao" class="form-control" rows="2" placeholder="Ex: Especialista em degradê..."></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-gold w-100 py-2 fw-bold">
+                            CADASTRAR BARBEIRO
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const API = "http://localhost:3000";
+        const usuarioLogado = JSON.parse(localStorage.getItem("usuario"));
+
+        // Proteção de Rota
+        if (!usuarioLogado || usuarioLogado.tipo !== "admin") {
+            document.getElementById("painel-admin").classList.add("d-none");
+            document.getElementById("msg-erro").classList.remove("d-none");
+            setTimeout(() => { window.location.href = "index.html"; }, 3000);
+        } else {
+            // Se for admin, carrega os preços
+            carregarPrecosAtuais();
+        }
+
+        async function carregarPrecosAtuais() {
+            try {
+                const res = await fetch(`${API}/configuracao`);
+                const config = await res.json();
+                
+                // Preenche os inputs com o valor que vem do banco
+                if (config.precoCorte) {
+                    document.getElementById("precoCorte").value = config.precoCorte;
+                    document.getElementById("precoSinal").value = config.precoSinal;
+                }
+            } catch (err) { 
+                console.error("Erro ao carregar preços"); 
+            }
+        }
+
+        async function atualizarPreco(e) {
+            e.preventDefault();
+            const novoPreco = document.getElementById("precoCorte").value;
+            const novoSinal = document.getElementById("precoSinal").value;
+
+            try {
+                const res = await fetch(`${API}/admin/configuracao`, {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ novoPreco, novoSinal })
+                });
+
+                if (res.ok) {
+                    alert("✅ Preços da loja atualizados com sucesso!");
+                } else {
+                    alert("Erro ao atualizar.");
+                }
+            } catch (err) { 
+                alert("Erro de conexão"); 
+            }
+        }
+
+        async function cadastrarBarbeiro(e) {
+            e.preventDefault();
+            
+            const payload = {
+                nome: document.getElementById("nome").value,
+                email: document.getElementById("email").value,
+                senha: document.getElementById("senha").value,
+                descricao: document.getElementById("descricao").value,
+                tipo: "barbeiro"
+            };
+
+            try {
+                const res = await fetch(`${API}/admin/register-barber`, {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) { alert("✅ Barbeiro cadastrado!"); e.target.reset(); }
+                else { const data = await res.json(); alert("Erro: " + data.erro); }
+            } catch (err) { alert("Erro de conexão."); }
+        }
+
+        function logout() { localStorage.clear(); window.location.href = "index.html"; }
+    </script>
+</body>
+</html>

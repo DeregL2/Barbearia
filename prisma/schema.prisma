@@ -1,3 +1,5 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,46 +9,52 @@ datasource db {
   url      = "file:./dev.db"
 }
 
-// 1. MODELO DE USUÁRIO (Unificado)
+// 1. USUÁRIOS (Admin, Barbeiro e Cliente)
 model User {
-  id        Int      @id @default(autoincrement())
+  id        Int     @id @default(autoincrement())
   nome      String
-  email     String   @unique
+  email     String  @unique
   senha     String
-  tipo      String   // "cliente", "barbeiro" ou "admin"
+  tipo      String  // "cliente", "barbeiro", "admin"
   
-  // CAMPOS ESPECÍFICOS PARA BARBEIROS (Opcionais com ?)
-  descricao String?  // Ex: "Especialista em degradê"
-  fotoUrl   String?  // Link da foto de perfil
-  preco     Float?   // Valor cobrado pelo serviço
+  // Detalhes extras (apenas para barbeiros)
+  descricao String? 
+  fotoUrl   String?
+  // O campo 'preco' foi REMOVIDO daqui pois agora é global
 
-  // RELAÇÕES (Essencial para ligar as tabelas)
-  agendamentosCliente  Agendamento[] @relation("cliente")
-  agendamentosBarbeiro Agendamento[] @relation("barbeiro")
-  disponibilidades      Disponibilidade[]
+  // Relacionamentos
+  agendamentosCliente  Agendamento[]     @relation("cliente")
+  agendamentosBarbeiro Agendamento[]     @relation("barbeiro")
+  disponibilidades     Disponibilidade[]
 }
 
-// 2. MODELO DE AGENDAMENTO
+// 2. AGENDAMENTOS
 model Agendamento {
   id         Int    @id @default(autoincrement())
   data       String
   horario    String
   
-  // Chave estrangeira do Cliente
   clienteId  Int
   cliente    User   @relation("cliente", fields: [clienteId], references: [id])
 
-  // Chave estrangeira do Barbeiro
   barbeiroId Int
   barbeiro   User   @relation("barbeiro", fields: [barbeiroId], references: [id])
 }
 
-// 3. MODELO DE DISPONIBILIDADE
+// 3. DISPONIBILIDADE (Agenda do Barbeiro)
 model Disponibilidade {
   id         Int    @id @default(autoincrement())
   data       String
-  horarios   String // Ex: "09:00,10:00,14:00"
-  
+  horarios   String // Ex: "09:00,10:00,11:00"
+
   barbeiroId Int
   barbeiro   User   @relation(fields: [barbeiroId], references: [id])
+}
+
+// 4. CONFIGURAÇÃO GLOBA (Preço Único)
+// É aqui que o seu erro vai sumir! 👇
+model Configuracao {
+  id         Int    @id @default(autoincrement())
+  precoCorte Float  @default(40.00)
+  precoSinal Float  @default(20.00)
 }

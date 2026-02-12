@@ -2,20 +2,106 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Escolher Barbeiro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nossos Profissionais</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
-    <div class="container">
-        <h1>Escolha seu Barbeiro</h1>
+<body class="bg-cliente">
 
-        <div id="lista-barbeiros"></div>
+    <nav class="navbar navbar-custom mb-4">
+        <div class="container d-flex justify-content-between align-items-center">
+            <span class="brand-font h4 m-0 text-white">💈 Barbearia V2</span>
+            <div class="d-flex align-items-center gap-2">
+                <span id="nome-usuario" class="text-white d-none d-md-block small">Bem-vindo</span>
+                <button onclick="logout()" class="btn btn-outline-danger btn-sm" style="font-size: 0.8rem;">SAIR</button>
+            </div>
+        </div>
+    </nav>
 
-        <p id="msg"></p>
+    <div class="container pb-5">
+        <div class="text-center mb-4">
+            <h1 class="display-5 fw-bold text-warning">ESCOLHA SEU MESTRE</h1>
+            
+            <p class="text-secondary small">
+                Valor do Corte: <span id="preco-display" class="text-white fw-bold">Carregando...</span>
+            </p>
+        </div>
+
+        <div id="lista-barbeiros" class="row g-3 justify-content-center">
+            <div class="col-12 text-center">
+                <div class="spinner-border text-warning" role="status"></div>
+            </div>
+        </div>
     </div>
 
-    <script src="script.js"></script>
+    <script>
+        const API = "http://localhost:3000";
+        const usuario = JSON.parse(localStorage.getItem("usuario"));
+        if(!usuario) window.location.href = "index.html";
+        
+        document.getElementById("nome-usuario").innerText = `Olá, ${usuario.nome.split(' ')[0]}`;
 
+        // 1. BUSCA O PREÇO GLOBAL DO ADMIN
+        async function carregarPreco() {
+            try {
+                const res = await fetch(`${API}/configuracao`);
+                const config = await res.json();
+                // Atualiza na tela
+                document.getElementById("preco-display").innerText = `R$ ${config.precoCorte.toFixed(2)}`;
+            } catch (err) {
+                document.getElementById("preco-display").innerText = "R$ --,--";
+            }
+        }
+
+        async function carregarBarbeiros() {
+            const lista = document.getElementById("lista-barbeiros");
+            try {
+                const res = await fetch(`${API}/barbeiros`);
+                const barbeiros = await res.json();
+                lista.innerHTML = "";
+
+                if (barbeiros.length === 0) {
+                    lista.innerHTML = "<h6 class='text-center text-white'>Nenhum barbeiro disponível.</h6>";
+                    return;
+                }
+
+                barbeiros.forEach(b => {
+                    const descricao = b.descricao || "Especialista em cortes modernos.";
+                    const inicial = b.nome.charAt(0).toUpperCase();
+
+                    const div = document.createElement("div");
+                    div.className = "col-md-4 col-sm-6";
+
+                    div.innerHTML = `
+                        <div class="card card-custom h-100 text-center p-3">
+                            <div class="barber-avatar shadow mb-3">${inicial}</div>
+                            <h3 class="h5 mb-2 text-warning fw-bold text-uppercase">${b.nome}</h3>
+                            <p class="card-text text-light small mb-3" style="min-height: 40px; font-size: 0.85rem;">
+                                "${descricao}"
+                            </p>
+                            <button onclick="selecionarBarbeiro(${b.id})" class="btn btn-gold w-100 btn-sm">
+                                AGENDAR
+                            </button>
+                        </div>
+                    `;
+                    lista.append(div);
+                });
+            } catch (err) {
+                lista.innerHTML = "<p class='text-danger text-center'>Erro ao carregar.</p>";
+            }
+        }
+
+        function selecionarBarbeiro(id) {
+            localStorage.setItem("barbeiroId", id);
+            window.location.href = "agenda.html";
+        }
+
+        function logout() { localStorage.clear(); window.location.href = "index.html"; }
+        
+        // Inicia as duas coisas
+        carregarPreco();
+        carregarBarbeiros();
+    </script>
 </body>
 </html>

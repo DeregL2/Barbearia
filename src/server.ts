@@ -1,99 +1,93 @@
 import express from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
-import bcrypt, { hash } from 'bcrypt';
-import { join } from '@prisma/client/runtime/library';
+import bcrypt from 'bcrypt';
 
-// 1. Iniciamos a conexao com o banco
 const prisma = new PrismaClient();
 const app = express();
 const PORT = 3000;
 
-// 2. Configuracoes padrao (JSON e CORS)
 app.use(express.json());
 app.use(cors());
 
-// 3. Rota de Teste para ver se tudo funciona
+// --- ROTA DE TESTE ---
 app.get('/', (req, res) => {
-    res.send('💈 API da Barbearia V2 (com Banco de Dados) está rodando!');
+    res.send('💈 API da Barbearia V2 (Preço Global) está rodando!');
 });
 
-// 4. Ligar o servidor
-async function main() {
-    // Tenta conectar no banco antes de ligar o servidor
+// --- ROTAS DE CONFIGURAÇÃO (PREÇO GLOBAL) ---
+// 1. Pega o preço atual (COM A CORREÇÃO "ANY")
+app.get("/configuracao", async (req, res) => {
     try {
-        await prisma.$connect();
-        console.log('📦 Banco de Dados conectado com sucesso!');
-
-        app.listen(PORT, () => {
-            console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
+        // Usamos (prisma as any) para ignorar o erro visual do TypeScript
+        const config = await (prisma as any).configuracao.findUnique({
+            where: { id: 1 }
         });
+        // Retorna o do banco ou um padrão de segurança
+        return res.json(config || { precoCorte: 40.00, precoSinal: 20.00 });
+    } catch (error) {
+        return res.json({ precoCorte: 40.00, precoSinal: 20.00 });
     }
+});
 
-    catch (error) {
-        console.error('Erro ao conectar no banco', error);
+// 2. Atualiza o preço (COM A CORREÇÃO "ANY")
+app.post("/admin/configuracao", async (req, res) => {
+    const { novoPreco, novoSinal } = req.body;
+
+    try {
+        const configAtualizada = await (prisma as any).configuracao.upsert({
+            where: { id: 1 },
+            update: {
+                precoCorte: parseFloat(novoPreco),
+                precoSinal: parseFloat(novoSinal)
+            },
+            create: {
+                id: 1,
+                precoCorte: parseFloat(novoPreco),
+                precoSinal: parseFloat(novoSinal)
+            }
+        });
+        return res.json({ mensagem: "Preços atualizados com sucesso!", config: configAtualizada });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ erro: "Erro ao atualizar preços." });
     }
-}
+});
+
+// --- ROTAS DE USUÁRIO ---
 
 app.post('/register', async (req, res) => {
-    const { nome, email, senha, tipo } = req.body;
-
+    const { nome, email, senha } = req.body;
     try {
-        // 1. Verificar se usuario ja existe no banco
-        const usuarioExiste = await prisma.user.findUnique({
-            where: { email: email }
-        });
+        const usuarioExiste = await prisma.user.findUnique({ where: { email } });
+        if (usuarioExiste) return res.status(409).json({ erro: "Email já cadastrado" });
 
-        if (usuarioExiste) {
-            return res.status(409).json({ erro: "Email ja cadastrado" });
-        }
-
-        // 2. Criptografar a senha
         const senhaCriptografada = await bcrypt.hash(senha, 10);
-
-        // 3. Salvar no Banco de Dados
         const novoUsuario = await prisma.user.create({
             data: {
-                nome: nome,
-                email: email,
+                nome,
+                email,
                 senha: senhaCriptografada,
                 tipo: "cliente"
             }
         });
-
         return res.status(201).json(novoUsuario);
-    }
-
-    catch (error) {
+    } catch (error) {
         return res.status(500).json({ erro: "Erro ao cadastrar usuário" });
     }
 });
 
 app.post("/login", async (req, res) => {
     const { email, senha } = req.body;
+    const usuario = await prisma.user.findUnique({ where: { email } });
 
-    //1. Tenta achar o usuario no banco pelo email
-    const usuario = await prisma.user.findUnique({
-        where: { email: email }
-    });
+    if (!usuario) return res.status(401).json({ erro: "Email ou senha invalidos" });
 
-    //2. Se não achou ninguém com esse email, retorna erro
-    if (!usuario) {
-        return res.status(401).json({
-            erro: "Email ou senha invalidos"
-        });
-    }
-
-    //3. Verifica se a senha bate (compara a senha digitada com a criptografada)
     const senhaValida = await bcrypt.compare(senha, usuario.senha);
+    if (!senhaValida) return res.status(401).json({ erro: "Email ou senha invalidos" });
 
-    if (!senhaValida) {
-        return res.status(401).json({ erro: "Email ou senha invalidos" });
-    }
-
-    // 4. Se chegou aqui, deu tudo certo! Devolve os dados do usuário
     return res.json({
-        mensagem: "Login realizado com sucesso",
+        mensagem: "Login realizado",
         usuario: {
             id: usuario.id,
             nome: usuario.nome,
@@ -101,216 +95,162 @@ app.post("/login", async (req, res) => {
             tipo: usuario.tipo
         }
     });
-
 });
 
-// 1. Rota para Listar Barbeiros
+// --- ROTA DE BARBEIROS ---
 app.get("/barbeiros", async (req, res) => {
-    // Busca no banco todos os usuarios onde tipo e "barbeiro"
     const barbeiros = await prisma.user.findMany({
         where: { tipo: "barbeiro" },
-        select: { id: true, nome: true, email: true }
+        select: { 
+            id: true, 
+            nome: true, 
+            email: true, 
+            descricao: true, 
+            fotoUrl: true
+        }
     });
-
     return res.json(barbeiros);
 });
 
-// 2. Rota para ver disponibilidade (Lógica adaptada para o campo String do Schema)
-app.get("/disponibilidade/:barbeiroId/:data", async (req, res) => {
-    const { barbeiroId, data } = req.params;
-
-    // Busca disponibilidade no banco
-    const disponibilidade = await prisma.disponibilidade.findFirst({
-        where: {
-            barbeiroId: parseInt(barbeiroId),
-            data: data
-        }
-    });
-
-    // Se nao achar nada no banco, retorna array vazio
-    if (!disponibilidade) {
-        return res.json({ horarios: [] });
-    }
-
-    // O banco salva como String ("09:00,10:00"), mas o front espera Array ["09:00", "10:00"]
-    // O split(',') transforma a string em array
-    const listaHorarios = disponibilidade.horarios.split(",");
-
-    return res.json({ horarios: listaHorarios });
-});
-
-// 3. Rota de Agendamento
-app.post("/agendar", async (req, res) => {
-    const { clienteId, barbeiroId, data, horario } = req.body;
-
-    try {
-
-        // Verifica se O CLIENTE já tem agendamento nesta data (independente do horário)
-        const agendamentoExistente = await prisma.agendamento.findFirst({
-            where: {
-                clienteId: clienteId,
-                data: data
-            }
-        });
-
-        if (agendamentoExistente) {
-            return res.status(400).json({
-                erro: "Você já possui um corte agendado para este dia!"
-            });
-        }
-
-        // A. Verifica se a disponibilidade existe
-        const disponibilidade = await prisma.disponibilidade.findFirst({
-            where: {
-                barbeiroId: barbeiroId,
-                data: data
-            }
-        });
-
-        if (!disponibilidade) {
-            return res.status(400).json({ erro: "Agenda não encontrada para este dia." });
-        }
-
-        // B. Verifica se o horário está na lista (convertendo a string do banco para array)
-        let horariosArray = disponibilidade.horarios.split(',');
-
-        if (!horariosArray.includes(horario)) {
-            return res.status(400).json({ erro: "Horário indisponível ou já reservado." });
-        }
-
-        // C. Transação: Cria o agendamento E remove o horário da disponibilidade
-        // Isso garante que ninguém marque o mesmo horário ao mesmo tempo
-        await prisma.$transaction(async (tx) => {
-            // 1. Cria o agendamento
-            await tx.agendamento.create({
-                data: {
-                    data,
-                    horario,
-                    clienteId,
-                    barbeiroId
-                }
-            });
-
-            // 2. Remove o horário da lista
-            const novosHorarios = horariosArray.filter(h => h !== horario);
-            const novosHorariosString = novosHorarios.join(',');
-
-            // 3. Atualiza a tabela de disponibilidade
-            await tx.disponibilidade.update({
-                where: { id: disponibilidade.id },
-                data: { horarios: novosHorariosString }
-            });
-        });
-
-        return res.status(201).json({ mensagem: "Agendamento realizado com sucesso!" })
-
-    }
-
-    catch (error) {
-        console.error(error);
-        return res.status(500).json({ erro: "Erro ao realizar agendamento." });
-    }
-
-});
-
-// 4. Rota para o Barbeiro ver seus agendamentos (Dashboard)
-app.get('/ver-agendamentos', async (req, res) => {
-    // O 'include' pede para o Prisma trazer também os dados da tabela User (cliente)
-    const agendamentos = await prisma.agendamento.findMany({
-        include: {
-            cliente: {
-                select: { nome: true, email: true } // Traz só o nome e email, não a senha!
-            }
-        }
-    });
-
-    res.json(agendamentos);
-});
-
-// 5. Rota para o Barbeiro cadastrar disponibilidade (Abrir Agenda)
-app.post("/disponibilidade", async (req, res) => {
-    const { barbeiroId, data, horarios } = req.body;
-
-    // Validacao Basica
-    if (!barbeiroId || !data || !horarios){
-        return res.status(400).json({erro: "Dados Incompletos "});
-    }
-
-    try {
-        // Verifica se já existe agenda para esse dia
-        const disponibilidadeExistente = await prisma.disponibilidade.findFirst({
-            where: {
-                barbeiroId: parseInt(barbeiroId),
-                data: data
-            }
-        });
-
-        if (disponibilidadeExistente){
-            // Se já existe, atualizamos os horários (sobrescreve)
-            await prisma.disponibilidade.update({
-                where: {id: disponibilidadeExistente.id},
-                data: {horarios: horarios}
-            });
-            return res.json({ mensagem: "Agenda atualizada com sucesso!" })
-        }
-
-        // Se nao existe, cria do zero
-        await prisma.disponibilidade.create({
-            data: {
-                barbeiroId: parseInt(barbeiroId),
-                data: data,
-                horarios: horarios
-            }
-        });
-
-        return res.status(201).json({mensagem: "Agenda aberta com sucesso!"});
-    }
-
-    catch (error) {
-        console.error(error);
-        return res.status(500).json({erro: "Erro ao criar disponibilidade."})
-    }
-});
-
-// server.ts - Atualização na rota de registro
-
+// --- ROTA DE CADASTRO DE BARBEIRO (ADMIN) ---
 app.post('/admin/register-barber', async (req, res) => {
-    // Adicionamos descricao e preco na desestruturação
-    const { nome, email, senha, tipo, descricao, preco } = req.body;
+    const { nome, email, senha, descricao } = req.body;
 
     try {
-        const usuarioExiste = await prisma.user.findUnique({
-            where: { email: email }
-        });
-
-        if (usuarioExiste) {
-            return res.status(409).json({ erro: "Email já cadastrado" });
-        }
+        const usuarioExiste = await prisma.user.findUnique({ where: { email } });
+        if (usuarioExiste) return res.status(409).json({ erro: "Email já cadastrado" });
 
         const senhaCriptografada = await bcrypt.hash(senha, 10);
-
-        // Define o tipo. Se o frontend mandar "barbeiro", aceita. 
-        // OBS: Num app real, teríamos uma verificação se quem está pedindo é Admin.
-        // Para o MVP, vamos confiar no envio do front.
-        const tipoUsuario = tipo || "cliente"; 
 
         const novoUsuario = await prisma.user.create({
             data: {
                 nome,
                 email,
                 senha: senhaCriptografada,
-                tipo: tipoUsuario,
-                // Salva os campos opcionais (se vierem nulos, o banco aceita pois pusemos 'String?')
-                descricao: tipoUsuario === 'barbeiro' ? descricao : null,
-                preco: tipoUsuario === 'barbeiro' ? parseFloat(preco) : null
+                tipo: "barbeiro",
+                descricao: descricao || null
             }
         });
 
         return res.status(201).json(novoUsuario);
     } catch (error) {
         console.error(error);
-        return res.status(500).json({ erro: "Erro ao cadastrar usuário" });
+        return res.status(500).json({ erro: "Erro ao cadastrar barbeiro" });
     }
 });
 
-main()
+// --- ROTAS DE AGENDAMENTO ---
+
+app.get("/disponibilidade/:barbeiroId/:data", async (req, res) => {
+    const { barbeiroId, data } = req.params;
+    const disponibilidade = await prisma.disponibilidade.findFirst({
+        where: { barbeiroId: parseInt(barbeiroId), data }
+    });
+    if (!disponibilidade) return res.json({ horarios: [] });
+    return res.json({ horarios: disponibilidade.horarios.split(",") });
+});
+
+app.post("/disponibilidade", async (req, res) => {
+    const { barbeiroId, data, horarios } = req.body;
+    try {
+        const existente = await prisma.disponibilidade.findFirst({
+            where: { barbeiroId: parseInt(barbeiroId), data }
+        });
+
+        if (existente) {
+            await prisma.disponibilidade.update({
+                where: { id: existente.id },
+                data: { horarios }
+            });
+        } else {
+            await prisma.disponibilidade.create({
+                data: { barbeiroId: parseInt(barbeiroId), data, horarios }
+            });
+        }
+        return res.status(201).json({ mensagem: "Agenda atualizada!" });
+    } catch (error) {
+        return res.status(500).json({ erro: "Erro ao salvar agenda." });
+    }
+});
+
+app.post("/agendar", async (req, res) => {
+    const { clienteId, barbeiroId, data, horario } = req.body;
+
+    try {
+        const agendamentoExistente = await prisma.agendamento.findFirst({
+            where: { clienteId, data }
+        });
+        if (agendamentoExistente) {
+            return res.status(400).json({ erro: "Você já tem um corte neste dia!" });
+        }
+
+        const disponibilidade = await prisma.disponibilidade.findFirst({
+            where: { barbeiroId, data }
+        });
+
+        if (!disponibilidade) return res.status(400).json({ erro: "Agenda não encontrada." });
+
+        let horariosArray = disponibilidade.horarios.split(',');
+        if (!horariosArray.includes(horario)) {
+            return res.status(400).json({ erro: "Horário indisponível." });
+        }
+
+        await prisma.$transaction(async (tx) => {
+            await tx.agendamento.create({
+                data: { data, horario, clienteId, barbeiroId }
+            });
+
+            const novosHorarios = horariosArray.filter(h => h !== horario).join(',');
+            await tx.disponibilidade.update({
+                where: { id: disponibilidade.id },
+                data: { horarios: novosHorarios }
+            });
+        });
+
+        return res.status(201).json({ mensagem: "Agendamento confirmado!" });
+    } catch (error) {
+        return res.status(500).json({ erro: "Erro ao agendar." });
+    }
+});
+
+app.get('/ver-agendamentos', async (req, res) => {
+    const agendamentos = await prisma.agendamento.findMany({
+        include: {
+            cliente: { select: { nome: true, email: true } }
+        }
+    });
+    res.json(agendamentos);
+});
+
+// --- ROTA DE RECUPERAR SENHA ---
+app.post("/recuperar-senha", async (req, res) => {
+    const { email, novaSenha } = req.body;
+    try {
+        const usuario = await prisma.user.findUnique({ where: { email } });
+        if (!usuario) return res.status(404).json({ erro: "E-mail não encontrado." });
+
+        const novaSenhaHash = await bcrypt.hash(novaSenha, 10);
+        await prisma.user.update({
+            where: { email },
+            data: { senha: novaSenhaHash }
+        });
+        return res.json({ mensagem: "Senha redefinida!" });
+    } catch (error) {
+        return res.status(500).json({ erro: "Erro ao redefinir senha." });
+    }
+});
+
+// --- LIGAR SERVIDOR ---
+async function main() {
+    try {
+        await prisma.$connect();
+        console.log('📦 Banco conectado!');
+        app.listen(PORT, () => {
+            console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
+        });
+    } catch (error) {
+        console.error('Erro ao conectar no banco', error);
+    }
+}
+
+main();

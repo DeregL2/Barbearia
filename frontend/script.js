@@ -4,6 +4,7 @@ const API = "http://localhost:3000";
 let horarioSelecionado = null;
 
 // --- FUNÇÃO DE LOGIN ---
+// --- FUNÇÃO DE LOGIN ---
 async function login() {
     const email = document.getElementById("email").value;
     const senha = document.getElementById("senha").value;
@@ -31,11 +32,15 @@ async function login() {
 
         alert("Login realizado com sucesso!");
 
-        // Redirecionamento
-        if (data.usuario.tipo === "barbeiro") {
-            window.location.href = "dashboard-barbeiro.html";
-        } else {
-            window.location.href = "barbeiros.html"; // ou agenda.html, dependendo do seu fluxo
+        // Redirecionamento Inteligente 🧠
+        if (data.usuario.tipo === "admin") {
+            window.location.href = "dashboard-admin.html"; // Dono
+        } 
+        else if (data.usuario.tipo === "barbeiro") {
+            window.location.href = "dashboard-barbeiro.html"; // Profissional
+        } 
+        else {
+            window.location.href = "barbeiros.html"; // Cliente
         }
 
     } catch (err) {
