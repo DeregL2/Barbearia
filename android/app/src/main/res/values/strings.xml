@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Barbearia</string>
+    <string name="title_activity_main">Barbearia</string>
+    <string name="package_name">com.barbearia.app</string>
+    <string name="custom_url_scheme">com.barbearia.app</string>
+</resources>

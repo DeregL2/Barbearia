@@ -1,4 +1,4 @@
-const API = "http://localhost:3000";
+const API = "http://192.168.15.61:3000";
 
 // Variável global para guardar o horário que o usuário clicou
 let horarioSelecionado = null;

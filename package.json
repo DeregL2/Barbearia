@@ -6,6 +6,9 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@capacitor/android": "^8.1.0",
+    "@capacitor/cli": "^8.1.0",
+    "@capacitor/core": "^8.1.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "express": "^5.2.1"

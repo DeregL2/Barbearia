@@ -5,70 +5,72 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Painel Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css"> 
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body class="bg-admin">
 
     <nav class="navbar navbar-custom mb-5">
         <div class="container">
-            <span class="brand-font h4 m-0 text-white">👑 Gestão da Barbearia</span>
+            <span class="brand-font h4 m-0 text-white">👑 Gestão Admin</span>
             <button onclick="logout()" class="btn btn-outline-danger btn-sm">SAIR</button>
         </div>
     </nav>
 
     <div class="container pb-5">
-        <div id="msg-erro" class="alert alert-danger d-none">⛔ Sem permissão.</div>
-
         <div id="painel-admin" class="row justify-content-center g-4">
             
             <div class="col-md-8">
-                <div class="card card-custom p-4 border-warning">
-                    <h4 class="mb-3 text-white border-bottom border-secondary pb-2">💰 Tabela de Preços</h4>
+                <div class="card card-custom p-4 border-warning mb-4">
+                    <h5 class="text-white border-bottom border-secondary pb-2">💰 Tabela de Preços</h5>
                     <form onsubmit="atualizarPreco(event)" class="row align-items-end">
                         <div class="col-6">
-                            <label class="text-warning small fw-bold">VALOR DO CORTE (R$)</label>
+                            <label class="text-warning small fw-bold">CORTE (R$)</label>
                             <input type="number" id="precoCorte" class="form-control" step="0.01" required>
                         </div>
                         <div class="col-6">
-                            <label class="text-warning small fw-bold">VALOR DO SINAL (R$)</label>
+                            <label class="text-warning small fw-bold">SINAL (R$)</label>
                             <input type="number" id="precoSinal" class="form-control" step="0.01" required>
                         </div>
                         <div class="col-12 mt-3">
-                            <button type="submit" class="btn btn-outline-warning w-100 fw-bold">SALVAR NOVOS PREÇOS</button>
+                            <button type="submit" class="btn btn-outline-warning w-100 fw-bold">SALVAR</button>
                         </div>
                     </form>
                 </div>
             </div>
 
             <div class="col-md-8">
-                <div class="card card-custom p-4">
-                    <h4 class="mb-3 text-white border-bottom border-secondary pb-2">Cadastrar Profissional</h4>
+                <div class="card card-custom p-4 mb-4">
+                    <h5 class="text-white border-bottom border-secondary pb-2">Cadastrar Novo</h5>
                     <form onsubmit="cadastrarBarbeiro(event)">
                         <div class="mb-3">
-                            <label class="text-warning small fw-bold">NOME COMPLETO</label>
-                            <input type="text" id="nome" class="form-control" placeholder="Ex: João Navalha" required>
+                            <input type="text" id="nome" class="form-control" placeholder="Nome Completo" required>
                         </div>
-                        
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="text-warning small fw-bold">E-MAIL</label>
-                                <input type="email" id="email" class="form-control" required>
+                                <input type="email" id="email" class="form-control" placeholder="E-mail" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="text-warning small fw-bold">SENHA INICIAL</label>
-                                <input type="password" id="senha" class="form-control" required>
+                                <input type="password" id="senha" class="form-control" placeholder="Senha" required>
                             </div>
                         </div>
-
-                        <div class="mb-4">
-                            <label class="text-warning small fw-bold">DESCRIÇÃO / ESPECIALIDADE</label>
-                            <textarea id="descricao" class="form-control" rows="2" placeholder="Ex: Especialista em degradê..."></textarea>
+                        <div class="mb-3">
+                            <input type="text" id="fotoUrl" class="form-control" placeholder="Link da Foto (URL)">
                         </div>
-
-                        <button type="submit" class="btn btn-gold w-100 py-2 fw-bold">
-                            CADASTRAR BARBEIRO
-                        </button>
+                        <div class="mb-3">
+                            <textarea id="descricao" class="form-control" rows="2" placeholder="Especialidades..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-gold w-100 fw-bold">CADASTRAR</button>
                     </form>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="card card-custom p-4">
+                    <h5 class="text-white border-bottom border-secondary pb-2">Gerenciar Equipe</h5>
+                    <div id="lista-equipe" class="d-flex flex-column gap-3">
+                        <div class="text-center text-secondary">Carregando...</div>
+                    </div>
                 </div>
             </div>
 
@@ -76,74 +78,131 @@
     </div>
 
     <script>
-        const API = "http://localhost:3000";
+        const API = "http://192.168.15.61:3000"; // SEU IP
         const usuarioLogado = JSON.parse(localStorage.getItem("usuario"));
 
-        // Proteção de Rota
         if (!usuarioLogado || usuarioLogado.tipo !== "admin") {
-            document.getElementById("painel-admin").classList.add("d-none");
-            document.getElementById("msg-erro").classList.remove("d-none");
-            setTimeout(() => { window.location.href = "index.html"; }, 3000);
+            window.location.href = "index.html";
         } else {
-            // Se for admin, carrega os preços
             carregarPrecosAtuais();
+            carregarEquipe();
         }
 
         async function carregarPrecosAtuais() {
             try {
                 const res = await fetch(`${API}/configuracao`);
                 const config = await res.json();
-                
-                // Preenche os inputs com o valor que vem do banco
                 if (config.precoCorte) {
                     document.getElementById("precoCorte").value = config.precoCorte;
                     document.getElementById("precoSinal").value = config.precoSinal;
                 }
-            } catch (err) { 
-                console.error("Erro ao carregar preços"); 
-            }
+            } catch (err) { }
         }
 
         async function atualizarPreco(e) {
             e.preventDefault();
             const novoPreco = document.getElementById("precoCorte").value;
             const novoSinal = document.getElementById("precoSinal").value;
-
             try {
-                const res = await fetch(`${API}/admin/configuracao`, {
+                await fetch(`${API}/admin/configuracao`, {
                     method: "POST", headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ novoPreco, novoSinal })
                 });
-
-                if (res.ok) {
-                    alert("✅ Preços da loja atualizados com sucesso!");
-                } else {
-                    alert("Erro ao atualizar.");
-                }
-            } catch (err) { 
-                alert("Erro de conexão"); 
-            }
+                Swal.fire("Sucesso", "Preços atualizados!", "success");
+            } catch (err) { Swal.fire("Erro", "Erro de conexão.", "error"); }
         }
 
         async function cadastrarBarbeiro(e) {
             e.preventDefault();
-            
             const payload = {
                 nome: document.getElementById("nome").value,
                 email: document.getElementById("email").value,
                 senha: document.getElementById("senha").value,
-                descricao: document.getElementById("descricao").value,
-                tipo: "barbeiro"
+                fotoUrl: document.getElementById("fotoUrl").value,
+                descricao: document.getElementById("descricao").value
             };
-
             try {
                 const res = await fetch(`${API}/admin/register-barber`, {
                     method: "POST", headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload)
                 });
-                if (res.ok) { alert("✅ Barbeiro cadastrado!"); e.target.reset(); }
-                else { const data = await res.json(); alert("Erro: " + data.erro); }
-            } catch (err) { alert("Erro de conexão."); }
+                if (res.ok) { 
+                    Swal.fire("Sucesso", "Cadastrado!", "success"); e.target.reset(); carregarEquipe(); 
+                } else { 
+                    Swal.fire("Erro", "Falha ao cadastrar", "error"); 
+                }
+            } catch (err) { Swal.fire("Erro", "Erro conexão", "error"); }
+        }
+
+        // --- FUNÇÕES DE GERENCIAMENTO ---
+        async function carregarEquipe() {
+            const lista = document.getElementById("lista-equipe");
+            const res = await fetch(`${API}/barbeiros`);
+            const barbeiros = await res.json();
+            lista.innerHTML = "";
+
+            barbeiros.forEach(b => {
+                const div = document.createElement("div");
+                div.className = "d-flex justify-content-between align-items-center bg-dark p-3 rounded border border-secondary";
+                div.innerHTML = `
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-circle bg-secondary d-flex justify-content-center align-items-center fw-bold text-white" 
+                             style="width:40px; height:40px; overflow:hidden;">
+                             ${b.fotoUrl ? `<img src="${b.fotoUrl}" style="width:100%; height:100%; object-fit:cover;">` : b.nome[0]}
+                        </div>
+                        <div>
+                            <div class="text-white fw-bold">${b.nome}</div>
+                            <div class="text-secondary small">${b.email}</div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button onclick="editarBarbeiro('${b.id}', '${b.nome}', '${b.descricao}', '${b.fotoUrl || ''}')" class="btn btn-sm btn-outline-warning">✏️</button>
+                        <button onclick="excluirBarbeiro('${b.id}')" class="btn btn-sm btn-outline-danger">🗑️</button>
+                    </div>
+                `;
+                lista.appendChild(div);
+            });
+        }
+
+        async function excluirBarbeiro(id) {
+            const result = await Swal.fire({
+                title: 'Tem certeza?', text: "Isso apagará a agenda deste barbeiro!", icon: 'warning',
+                showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sim, excluir'
+            });
+
+            if (result.isConfirmed) {
+                await fetch(`${API}/admin/barbeiros/${id}`, { method: 'DELETE' });
+                Swal.fire('Excluído!', 'O barbeiro foi removido.', 'success');
+                carregarEquipe();
+            }
+        }
+
+        async function editarBarbeiro(id, nomeAtual, descAtual, fotoAtual) {
+            const { value: formValues } = await Swal.fire({
+                title: 'Editar Barbeiro',
+                html:
+                    `<input id="swal-nome" class="swal2-input" placeholder="Nome" value="${nomeAtual}">` +
+                    `<input id="swal-foto" class="swal2-input" placeholder="URL da Foto" value="${fotoAtual}">` +
+                    `<textarea id="swal-desc" class="swal2-textarea" placeholder="Descrição">${descAtual}</textarea>`,
+                focusConfirm: false,
+                preConfirm: () => {
+                    return {
+                        nome: document.getElementById('swal-nome').value,
+                        fotoUrl: document.getElementById('swal-foto').value,
+                        descricao: document.getElementById('swal-desc').value
+                    }
+                }
+            });
+
+            if (formValues) {
+                await fetch(`${API}/admin/barbeiros/${id}`, {
+                    method: 'PUT',
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(formValues)
+                });
+                Swal.fire('Atualizado!', 'Dados salvos.', 'success');
+                carregarEquipe();
+            }
         }
 
         function logout() { localStorage.clear(); window.location.href = "index.html"; }
